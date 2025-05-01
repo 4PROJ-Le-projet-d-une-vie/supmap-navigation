@@ -64,7 +64,7 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/navigation", handleWS)
+	mux.HandleFunc("/ws", handleWS)
 
 	srv := &http.Server{
 		Addr:         ":8081",
@@ -73,6 +73,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 	}
 
-	log.Println("supmap-navigation WS server listening on :8081/navigation")
+	log.Println("supmap-navigation WS server listening on :8081/ws")
 	log.Fatal(srv.ListenAndServe())
 }
