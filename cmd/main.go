@@ -33,7 +33,7 @@ func run() error {
 	logger := slog.New(jsonHandler)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
-	sub := subscriber.NewSubscriber(conf, logger, redisClient, "incidents")
+	sub := subscriber.NewSubscriber(conf, logger, redisClient, "incidents", 10)
 
 	go func() {
 		if err := sub.Start(ctx); err != nil {
