@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"supmap-navigation/internal/api"
 	"supmap-navigation/internal/config"
+	"supmap-navigation/internal/subscriber"
 	"syscall"
 )
 
@@ -28,6 +31,15 @@ func run() error {
 
 	jsonHandler := slog.NewJSONHandler(os.Stdout, nil)
 	logger := slog.New(jsonHandler)
+
+	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
+	sub := subscriber.NewSubscriber(conf, logger, redisClient, "incidents")
+
+	go func() {
+		if err := sub.Start(ctx); err != nil {
+			logger.Error("subscriber stopped with error: ", err)
+		}
+	}()
 
 	server := api.NewServer(conf, logger)
 	if err := server.Start(ctx); err != nil {
