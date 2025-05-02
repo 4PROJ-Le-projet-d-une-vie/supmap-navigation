@@ -2,9 +2,12 @@ package subscriber
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"supmap-navigation/internal/config"
+	"supmap-navigation/internal/incidents"
 )
 
 type Subscriber struct {
@@ -67,6 +70,16 @@ func (s *Subscriber) Start(ctx context.Context) error {
 }
 
 func (s *Subscriber) handleMessage(ctx context.Context, msg *redis.Message) error {
-	s.logger.Info("received message", "payload", msg.Payload)
+	var incident incidents.Incident
+
+	if err := json.Unmarshal([]byte(msg.Payload), &incident); err != nil {
+		return fmt.Errorf("failed to decode incidents: %w", err)
+	}
+
+	if err := incident.Validate(); err != nil {
+		return fmt.Errorf("invalid incidents: %w", err)
+	}
+
+	s.logger.Info("incidents received", "incidents", incident)
 	return nil
 }
