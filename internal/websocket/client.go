@@ -15,7 +15,7 @@ type Client struct {
 	ID      string
 	Conn    *websocket.Conn
 	Manager *Manager
-	Send    chan Message
+	send    chan Message
 	ctx     context.Context
 	cancel  context.CancelFunc
 }
