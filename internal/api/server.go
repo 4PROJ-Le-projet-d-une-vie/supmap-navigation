@@ -7,19 +7,22 @@ import (
 	"net"
 	"net/http"
 	"supmap-navigation/internal/config"
+	"supmap-navigation/internal/ws"
 	"sync"
 	"time"
 )
 
 type Server struct {
-	Config *config.Config
-	logger *slog.Logger
+	Config           *config.Config
+	WebsocketManager *ws.Manager
+	logger           *slog.Logger
 }
 
-func NewServer(config *config.Config, logger *slog.Logger) *Server {
+func NewServer(config *config.Config, websocketManager *ws.Manager, logger *slog.Logger) *Server {
 	return &Server{
-		Config: config,
-		logger: logger,
+		Config:           config,
+		logger:           logger,
+		WebsocketManager: websocketManager,
 	}
 }
 
@@ -34,6 +37,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
+	mux.HandleFunc("/ws", s.wsHandler())
 
 	server := &http.Server{
 		Addr:    net.JoinHostPort(s.Config.APIServerHost, s.Config.APIServerPort),

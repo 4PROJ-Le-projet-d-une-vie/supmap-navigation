@@ -11,6 +11,7 @@ import (
 	"supmap-navigation/internal/api"
 	"supmap-navigation/internal/config"
 	"supmap-navigation/internal/subscriber"
+	"supmap-navigation/internal/ws"
 	"syscall"
 )
 
@@ -41,7 +42,10 @@ func run() error {
 		}
 	}()
 
-	server := api.NewServer(conf, logger)
+	wsManager := ws.NewManager(ctx)
+	go wsManager.Start()
+
+	server := api.NewServer(conf, wsManager, logger)
 	if err := server.Start(ctx); err != nil {
 		return err
 	}
