@@ -2,12 +2,13 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/coder/websocket"
 )
 
 type Message struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
 }
 
 type Client struct {
