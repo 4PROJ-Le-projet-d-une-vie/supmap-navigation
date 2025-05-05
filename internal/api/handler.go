@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"github.com/coder/websocket"
 	"github.com/matheodrd/httphelper/handler"
 	"net/http"
@@ -10,6 +11,10 @@ import (
 func (s *Server) wsHandler() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		id := r.URL.Query().Get("user_id")
+		if id == "" {
+			return handler.NewErrWithStatus(http.StatusBadRequest, errors.New("missing user_id"))
+		}
+
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return handler.NewErrWithStatus(http.StatusInternalServerError, err)
