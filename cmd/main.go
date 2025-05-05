@@ -42,7 +42,7 @@ func run() error {
 		}
 	}()
 
-	wsManager := ws.NewManager(ctx)
+	wsManager := ws.NewManager(ctx, logger)
 	go wsManager.Start()
 
 	server := api.NewServer(conf, wsManager, logger)
