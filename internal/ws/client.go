@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"log"
 	"time"
 )
 
@@ -50,7 +49,7 @@ func (c *Client) Start() {
 
 func (c *Client) Close() {
 	if err := c.Conn.Close(websocket.StatusNormalClosure, "bye :P"); err != nil {
-		log.Println("close connection err:", err)
+		c.Manager.logger.Warn("failed to close connection", "error", err)
 	}
 	c.cancel()
 }
@@ -72,7 +71,7 @@ func (c *Client) readPump() {
 	for {
 		var msg Message
 		if err := wsjson.Read(c.ctx, c.Conn, &msg); err != nil {
-			log.Printf("client %q read message err: %v", c.ID, err)
+			c.Manager.logger.Warn("failed to read message", "clientID", c.ID, "error", err)
 			break
 		}
 		c.handleMessage(msg)
@@ -93,12 +92,12 @@ func (c *Client) writePump() {
 				return
 			}
 			if err := wsjson.Write(c.ctx, c.Conn, msg); err != nil {
-				log.Printf("client %q write message err: %v", c.ID, err)
+				c.Manager.logger.Warn("failed to write message", "clientID", c.ID, "error", err)
 				return
 			}
 		case <-ticker.C:
 			if err := c.Conn.Ping(c.ctx); err != nil {
-				log.Printf("client %q ping err: %v", c.ID, err)
+				c.Manager.logger.Debug("failed to ping client", "clientID", c.ID, "error", err)
 				return
 			}
 		case <-c.ctx.Done():
@@ -110,10 +109,10 @@ func (c *Client) writePump() {
 func (c *Client) handleMessage(msg Message) {
 	switch msg.Type {
 	case "position":
-		log.Printf("client %q received position msg: %v", c.ID, msg.Data)
+		c.Manager.logger.Debug("received position message", "clientID", c.ID, "data", msg.Data)
 	case "route":
-		log.Printf("client %q received route msg: %v", c.ID, msg.Data)
+		c.Manager.logger.Debug("received route message", "clientID", c.ID, "data", msg.Data)
 	default:
-		log.Printf("client %q received unknown message type %q", c.ID, msg.Type)
+		c.Manager.logger.Debug("received unknown type message", "clientID", c.ID, "type", msg.Type)
 	}
 }
