@@ -31,6 +31,7 @@ func NewManager(ctx context.Context, logger *slog.Logger) *Manager {
 }
 
 func (m *Manager) Start() {
+	defer m.Shutdown()
 	for {
 		select {
 		case client := <-m.register:
