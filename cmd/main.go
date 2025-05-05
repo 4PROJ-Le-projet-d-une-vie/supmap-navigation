@@ -30,7 +30,12 @@ func run() error {
 		return err
 	}
 
-	jsonHandler := slog.NewJSONHandler(os.Stdout, nil)
+	var loggerOpts slog.HandlerOptions
+	if conf.Env == config.EnvDev {
+		loggerOpts = slog.HandlerOptions{Level: slog.LevelDebug}
+	}
+
+	jsonHandler := slog.NewJSONHandler(os.Stdout, &loggerOpts)
 	logger := slog.New(jsonHandler)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
