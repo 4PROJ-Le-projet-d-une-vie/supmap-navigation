@@ -32,6 +32,7 @@ func NewManager(ctx context.Context, logger *slog.Logger) *Manager {
 
 func (m *Manager) Start() {
 	defer m.Shutdown()
+	m.logger.Info("Websocket manager is running")
 	for {
 		select {
 		case client := <-m.register:
@@ -78,4 +79,5 @@ func (m *Manager) Shutdown() {
 		client.Close()
 	}
 	m.mu.Unlock()
+	m.logger.Info("shutting down Websocket manager")
 }
