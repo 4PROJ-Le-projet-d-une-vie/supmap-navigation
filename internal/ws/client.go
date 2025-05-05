@@ -114,6 +114,6 @@ func (c *Client) handleMessage(msg Message) {
 	case "route":
 		log.Printf("client %q received route msg: %v", c.ID, msg.Data)
 	default:
-		log.Printf("client %q received unknwon message type %q", c.ID, msg.Type)
+		log.Printf("client %q received unknown message type %q", c.ID, msg.Type)
 	}
 }
