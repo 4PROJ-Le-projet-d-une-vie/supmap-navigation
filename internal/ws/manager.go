@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"github.com/coder/websocket"
 	"log/slog"
 	"sync"
 )
@@ -62,6 +63,13 @@ func (m *Manager) Start() {
 			return
 		}
 	}
+}
+
+// HandleNewConnection creates a new client from an accepted connection.
+// Can be used in an HTTP handler.
+func (m *Manager) HandleNewConnection(userID string, conn *websocket.Conn) {
+	client := NewClient(userID, conn, m)
+	client.Start()
 }
 
 func (m *Manager) Broadcast(message Message) {
