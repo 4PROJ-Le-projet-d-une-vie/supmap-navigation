@@ -2,7 +2,7 @@ package ws
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -14,9 +14,10 @@ type Manager struct {
 	mu         sync.RWMutex
 	ctx        context.Context
 	cancel     context.CancelFunc
+	logger     *slog.Logger
 }
 
-func NewManager(ctx context.Context) *Manager {
+func NewManager(ctx context.Context, logger *slog.Logger) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Manager{
 		clients:    make(map[string]*Client),
@@ -25,6 +26,7 @@ func NewManager(ctx context.Context) *Manager {
 		broadcast:  make(chan Message),
 		ctx:        ctx,
 		cancel:     cancel,
+		logger:     logger,
 	}
 }
 
@@ -35,13 +37,13 @@ func (m *Manager) Start() {
 			m.mu.Lock()
 			m.clients[client.ID] = client
 			m.mu.Unlock()
-			log.Printf("client %q connected", client.ID)
+			m.logger.Debug("client connected", "clientID", client.ID)
 		case client := <-m.unregister:
 			m.mu.Lock()
 			if _, ok := m.clients[client.ID]; ok {
 				delete(m.clients, client.ID)
 				close(client.send)
-				log.Printf("client %q disconnected", client.ID)
+				m.logger.Debug("client disconnected", "clientID", client.ID)
 			}
 			m.mu.Unlock()
 		case message := <-m.broadcast:
