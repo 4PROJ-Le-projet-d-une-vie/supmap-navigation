@@ -9,10 +9,12 @@ import (
 	"os"
 	"os/signal"
 	"supmap-navigation/internal/api"
+	"supmap-navigation/internal/cache"
 	"supmap-navigation/internal/config"
 	"supmap-navigation/internal/subscriber"
 	"supmap-navigation/internal/ws"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -40,6 +42,7 @@ func run() error {
 
 	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
 	sub := subscriber.NewSubscriber(conf, logger, redisClient, "incidents", 10)
+	sessionCache := cache.NewRedisSessionCache(redisClient, 30*time.Minute)
 
 	go func() {
 		if err := sub.Start(ctx); err != nil {
@@ -47,7 +50,7 @@ func run() error {
 		}
 	}()
 
-	wsManager := ws.NewManager(ctx, logger)
+	wsManager := ws.NewManager(ctx, logger, sessionCache)
 	go wsManager.Start()
 
 	server := api.NewServer(conf, wsManager, logger)

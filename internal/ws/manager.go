@@ -4,30 +4,33 @@ import (
 	"context"
 	"github.com/coder/websocket"
 	"log/slog"
+	"supmap-navigation/internal/navigation"
 	"sync"
 )
 
 type Manager struct {
-	clients    map[string]*Client
-	register   chan *Client
-	unregister chan *Client
-	broadcast  chan Message
-	mu         sync.RWMutex
-	ctx        context.Context
-	cancel     context.CancelFunc
-	logger     *slog.Logger
+	clients      map[string]*Client
+	register     chan *Client
+	unregister   chan *Client
+	broadcast    chan Message
+	mu           sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	logger       *slog.Logger
+	sessionCache navigation.SessionCache
 }
 
-func NewManager(ctx context.Context, logger *slog.Logger) *Manager {
+func NewManager(ctx context.Context, logger *slog.Logger, cache navigation.SessionCache) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Manager{
-		clients:    make(map[string]*Client),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		broadcast:  make(chan Message),
-		ctx:        ctx,
-		cancel:     cancel,
-		logger:     logger,
+		clients:      make(map[string]*Client),
+		register:     make(chan *Client),
+		unregister:   make(chan *Client),
+		broadcast:    make(chan Message),
+		ctx:          ctx,
+		cancel:       cancel,
+		logger:       logger,
+		sessionCache: cache,
 	}
 }
 
