@@ -4,6 +4,11 @@ import (
 	"math"
 )
 
+type Point struct {
+	Lat float64
+	Lon float64
+}
+
 // EarthRadius in meters
 const EarthRadius = 6378137
 
