@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"supmap-navigation/internal/navigation"
 	"time"
 )
 
@@ -108,6 +109,15 @@ func (c *Client) writePump() {
 
 func (c *Client) handleMessage(msg Message) {
 	switch msg.Type {
+	case "init":
+		var session navigation.Session
+		if err := json.Unmarshal(msg.Data, &session); err != nil {
+			c.Manager.logger.Warn("failed to unmarshal init message", "clientID", c.ID, "error", err)
+			return
+		}
+		if err := c.Manager.sessionCache.SetSession(c.ctx, &session); err != nil {
+			c.Manager.logger.Warn("failed to cache session", "clientID", c.ID, "error", err)
+		}
 	case "position":
 		c.Manager.logger.Debug("received position message", "clientID", c.ID, "data", msg.Data)
 	case "route":
