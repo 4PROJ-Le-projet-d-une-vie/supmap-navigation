@@ -21,11 +21,12 @@ func (e Env) IsValid() bool {
 }
 
 type Config struct {
-	APIServerHost string `env:"API_SERVER_HOST"`
-	APIServerPort string `env:"API_SERVER_PORT"`
-	RedisHost     string `env:"REDIS_HOST"`
-	RedisPort     string `env:"REDIS_PORT"`
-	Env           Env    `env:"ENV" envDefault:"prod"`
+	APIServerHost         string `env:"API_SERVER_HOST"`
+	APIServerPort         string `env:"API_SERVER_PORT"`
+	RedisHost             string `env:"REDIS_HOST"`
+	RedisPort             string `env:"REDIS_PORT"`
+	RedisIncidentsChannel string `env:"REDIS_INCIDENTS_CHANNEL"`
+	Env                   Env    `env:"ENV" envDefault:"prod"`
 }
 
 func New() (*Config, error) {

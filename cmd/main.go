@@ -41,7 +41,7 @@ func run() error {
 	logger := slog.New(jsonHandler)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
-	sub := subscriber.NewSubscriber(conf, logger, redisClient, "incidents", 10)
+	sub := subscriber.NewSubscriber(conf, logger, redisClient, conf.RedisIncidentsChannel, 10)
 	sessionCache := cache.NewRedisSessionCache(redisClient, 30*time.Minute)
 
 	go func() {
