@@ -128,6 +128,25 @@ func (c *Client) handleMessage(msg Message) {
 		}
 	case "position":
 		c.Manager.logger.Debug("received position message", "clientID", c.ID, "data", msg.Data)
+
+		var pos navigation.Position
+		if err := json.Unmarshal(msg.Data, &pos); err != nil {
+			c.Manager.logger.Warn("failed to unmarshal position", "clientID", c.ID, "error", err)
+			return
+		}
+
+		session, err := c.Manager.sessionCache.GetSession(c.ctx, c.ID)
+		if err != nil {
+			c.Manager.logger.Warn("failed to get session for position update", "clientID", c.ID, "error", err)
+			return
+		}
+
+		session.LastPosition = pos
+		session.UpdatedAt = time.Now()
+
+		if err := c.Manager.sessionCache.SetSession(c.ctx, session); err != nil {
+			c.Manager.logger.Warn("failed to update session with new position", "clientID", c.ID, "error", err)
+		}
 	case "route":
 		c.Manager.logger.Debug("received route message", "clientID", c.ID, "data", msg.Data)
 	default:
