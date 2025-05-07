@@ -110,6 +110,8 @@ func (c *Client) writePump() {
 func (c *Client) handleMessage(msg Message) {
 	switch msg.Type {
 	case "init":
+		c.Manager.logger.Debug("received init message", "clientID", c.ID, "data", msg.Data)
+
 		var session navigation.Session
 		if err := json.Unmarshal(msg.Data, &session); err != nil {
 			c.Manager.logger.Warn("failed to unmarshal init message", "clientID", c.ID, "error", err)
