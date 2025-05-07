@@ -117,6 +117,12 @@ func (c *Client) handleMessage(msg Message) {
 			c.Manager.logger.Warn("failed to unmarshal init message", "clientID", c.ID, "error", err)
 			return
 		}
+
+		if session.UserID != c.ID {
+			c.Manager.logger.Warn("user ID mismatch", "clientID", c.ID, "user", session.UserID)
+			return
+		}
+
 		if err := c.Manager.sessionCache.SetSession(c.ctx, &session); err != nil {
 			c.Manager.logger.Warn("failed to cache session", "clientID", c.ID, "error", err)
 		}
