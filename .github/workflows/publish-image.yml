@@ -1,0 +1,30 @@
+name: Build & Push container image
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push container image
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          docker build -t ghcr.io/4proj-le-projet-d-une-vie/$REPO_NAME:latest .
+          docker push ghcr.io/4proj-le-projet-d-une-vie/$REPO_NAME:latest*
