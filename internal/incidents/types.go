@@ -1,28 +1,23 @@
 package incidents
 
 import (
-	"fmt"
+	"time"
 )
 
 type Incident struct {
-	ID     int     `json:"id"`
-	Lat    float64 `json:"lat"`
-	Lon    float64 `json:"lon"`
-	TypeID int     `json:"type_id"`
+	ID        int64      `json:"id"`
+	UserID    int64      `json:"user_id"`
+	Type      *Type      `json:"type"`
+	Lat       float64    `json:"lat"`
+	Lon       float64    `json:"lon"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (i *Incident) Validate() error {
-	if i.ID <= 0 {
-		return fmt.Errorf("invalid ID: %d", i.ID)
-	}
-	if i.TypeID <= 0 {
-		return fmt.Errorf("invalid TypeID: %d", i.TypeID)
-	}
-	if i.Lat < -90 || i.Lat > 90 {
-		return fmt.Errorf("invalid latitude: %f", i.Lat)
-	}
-	if i.Lon < -180 || i.Lon > 180 {
-		return fmt.Errorf("invalid longitude: %f", i.Lon)
-	}
-	return nil
+type Type struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	NeedRecalculation bool   `json:"need_recalculation"`
 }
