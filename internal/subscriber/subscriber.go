@@ -7,7 +7,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"supmap-navigation/internal/config"
-	"supmap-navigation/internal/incidents"
 )
 
 type Subscriber struct {
@@ -55,7 +54,7 @@ func (s *Subscriber) Start(ctx context.Context) error {
 			case sem <- struct{}{}:
 				go func(m *redis.Message) {
 					defer func() { <-sem }()
-					if err := s.handleMessage(ctx, m); err != nil {
+					if err := s.handleMessage(m); err != nil {
 						s.logger.Error("error handling message", "error", err)
 					}
 				}(msg)
@@ -69,17 +68,17 @@ func (s *Subscriber) Start(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) handleMessage(ctx context.Context, msg *redis.Message) error {
-	var incident incidents.Incident
+func (s *Subscriber) handleMessage(msg *redis.Message) error {
+	var incidentMsg IncidentMessage
 
-	if err := json.Unmarshal([]byte(msg.Payload), &incident); err != nil {
-		return fmt.Errorf("failed to decode incidents: %w", err)
+	if err := json.Unmarshal([]byte(msg.Payload), &incidentMsg); err != nil {
+		return fmt.Errorf("failed to decode pub/sub incident message: %w", err)
 	}
 
-	if err := incident.Validate(); err != nil {
-		return fmt.Errorf("invalid incidents: %w", err)
+	if !incidentMsg.Action.IsValid() {
+		return fmt.Errorf("invalid incident action: %s", incidentMsg.Action)
 	}
 
-	s.logger.Info("incidents received", "incidents", incident)
+	s.logger.Debug("incident pub/sub message received", "incidentMsg", incidentMsg)
 	return nil
 }
