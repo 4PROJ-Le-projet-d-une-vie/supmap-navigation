@@ -10,7 +10,7 @@ RUN go mod tidy
 COPY . .
 
 # Build application
-RUN CGO_ENABLED=0 GOOS=linux go build -o supmap-navigation cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o supmap-navigation cmd/main.go
 
 # Build final image
 FROM golang:1.24-alpine
