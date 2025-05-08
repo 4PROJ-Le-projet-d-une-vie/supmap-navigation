@@ -18,7 +18,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 COPY --from=builder /app/supmap-navigation .
-COPY --from=builder /app/docs ./docs
 
 # Default values
 ENV API_SERVER_HOST=0.0.0.0
