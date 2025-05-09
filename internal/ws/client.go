@@ -96,6 +96,7 @@ func (c *Client) writePump() {
 				c.Manager.logger.Warn("failed to write message", "clientID", c.ID, "error", err)
 				return
 			}
+			c.Manager.logger.Debug("message sent", "clientID", c.ID, "type", msg.Type)
 		case <-ticker.C:
 			if err := c.Conn.Ping(c.ctx); err != nil {
 				c.Manager.logger.Debug("failed to ping client", "clientID", c.ID, "error", err)
