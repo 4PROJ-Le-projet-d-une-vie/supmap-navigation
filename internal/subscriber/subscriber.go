@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"supmap-navigation/internal/config"
+	"supmap-navigation/internal/incidents"
 )
 
 type Subscriber struct {
@@ -15,15 +16,17 @@ type Subscriber struct {
 	client        *redis.Client
 	topic         string
 	maxConcurrent int
+	multicaster   *incidents.Multicaster
 }
 
-func NewSubscriber(config *config.Config, logger *slog.Logger, client *redis.Client, topic string, maxConcurrent int) *Subscriber {
+func NewSubscriber(config *config.Config, logger *slog.Logger, client *redis.Client, topic string, maxConcurrent int, multicaster *incidents.Multicaster) *Subscriber {
 	return &Subscriber{
 		config,
 		logger,
 		client,
 		topic,
 		maxConcurrent,
+		multicaster,
 	}
 }
 
@@ -54,7 +57,7 @@ func (s *Subscriber) Start(ctx context.Context) error {
 			case sem <- struct{}{}:
 				go func(m *redis.Message) {
 					defer func() { <-sem }()
-					if err := s.handleMessage(m); err != nil {
+					if err := s.handleMessage(ctx, m); err != nil {
 						s.logger.Error("error handling message", "error", err)
 					}
 				}(msg)
@@ -68,7 +71,7 @@ func (s *Subscriber) Start(ctx context.Context) error {
 	}
 }
 
-func (s *Subscriber) handleMessage(msg *redis.Message) error {
+func (s *Subscriber) handleMessage(ctx context.Context, msg *redis.Message) error {
 	var incidentMsg IncidentMessage
 
 	if err := json.Unmarshal([]byte(msg.Payload), &incidentMsg); err != nil {
@@ -80,5 +83,7 @@ func (s *Subscriber) handleMessage(msg *redis.Message) error {
 	}
 
 	s.logger.Debug("incident pub/sub message received", "incidentMsg", incidentMsg)
+
+	s.multicaster.MulticastIncident(ctx, &incidentMsg.Data, string(incidentMsg.Action))
 	return nil
 }

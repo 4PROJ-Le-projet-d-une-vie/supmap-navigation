@@ -11,6 +11,7 @@ import (
 	"supmap-navigation/internal/api"
 	"supmap-navigation/internal/cache"
 	"supmap-navigation/internal/config"
+	"supmap-navigation/internal/incidents"
 	"supmap-navigation/internal/subscriber"
 	"supmap-navigation/internal/ws"
 	"syscall"
@@ -41,17 +42,19 @@ func run() error {
 	logger := slog.New(jsonHandler)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(conf.RedisHost, conf.RedisPort)})
-	sub := subscriber.NewSubscriber(conf, logger, redisClient, conf.RedisIncidentsChannel, 10)
 	sessionCache := cache.NewRedisSessionCache(redisClient, 30*time.Minute)
+
+	wsManager := ws.NewManager(ctx, logger, sessionCache)
+	multicaster := incidents.NewMulticaster(wsManager, sessionCache)
+	sub := subscriber.NewSubscriber(conf, logger, redisClient, conf.RedisIncidentsChannel, 10, multicaster)
+
+	go wsManager.Start()
 
 	go func() {
 		if err := sub.Start(ctx); err != nil {
 			logger.Error("subscriber stopped with error: ", err)
 		}
 	}()
-
-	wsManager := ws.NewManager(ctx, logger, sessionCache)
-	go wsManager.Start()
 
 	server := api.NewServer(conf, wsManager, logger)
 	if err := server.Start(ctx); err != nil {
