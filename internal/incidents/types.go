@@ -4,6 +4,28 @@ import (
 	"time"
 )
 
+// IncidentPayload represents the payload used in the messages sent to the clients.
+type IncidentPayload struct {
+	Incident *Incident `json:"incident"`
+	Action   string    `json:"action"`
+}
+
+type Action string
+
+const (
+	Create    Action = "create"
+	Certified Action = "certified"
+	Deleted   Action = "deleted"
+)
+
+func (a *Action) IsValid() bool {
+	switch *a {
+	case Create, Certified, Deleted:
+		return true
+	}
+	return false
+}
+
 type Incident struct {
 	ID        int64      `json:"id"`
 	UserID    int64      `json:"user_id"`
