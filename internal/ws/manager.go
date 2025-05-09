@@ -68,6 +68,13 @@ func (m *Manager) Start() {
 	}
 }
 
+func (m *Manager) ClientsUnsafe() map[string]*Client {
+	return m.clients
+}
+
+func (m *Manager) RLock()   { m.mu.RLock() }
+func (m *Manager) RUnlock() { m.mu.RUnlock() }
+
 // HandleNewConnection creates a new client from an accepted connection.
 // Can be used in an HTTP handler.
 func (m *Manager) HandleNewConnection(userID string, conn *websocket.Conn) {
