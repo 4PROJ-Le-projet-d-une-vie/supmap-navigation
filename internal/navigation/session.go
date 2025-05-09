@@ -23,9 +23,14 @@ type Point struct {
 	Lon float64 `json:"longitude"`
 }
 
+type Location struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
 type Route struct {
-	Polyline  []Point `json:"polyline"`
-	Locations []Point `json:"locations"`
+	Polyline  []Point    `json:"polyline"`
+	Locations []Location `json:"locations"`
 }
 
 type SessionCache interface {
