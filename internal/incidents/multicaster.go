@@ -27,13 +27,16 @@ func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident,
 		}
 		if gis.IsPointInPolyline(gis.Point{Lat: incident.Lat, Lon: incident.Lon},
 			convertNavPointsToGIS(session.Route.Polyline), 30) {
-			payload, _ := json.Marshal(map[string]interface{}{
-				"incident": incident,
-				"action":   action,
-			})
+
+			incidentPayload := IncidentPayload{
+				Incident: incident,
+				Action:   action,
+			}
+
+			jsonPayload, _ := json.Marshal(incidentPayload)
 			client.Send(ws.Message{
 				Type: "incident",
-				Data: payload,
+				Data: jsonPayload,
 			})
 		}
 	}
