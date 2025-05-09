@@ -77,8 +77,8 @@ func (m *Manager) RUnlock() { m.mu.RUnlock() }
 
 // HandleNewConnection creates a new client from an accepted connection.
 // Can be used in an HTTP handler.
-func (m *Manager) HandleNewConnection(userID string, conn *websocket.Conn) {
-	client := NewClient(userID, conn, m)
+func (m *Manager) HandleNewConnection(id string, conn *websocket.Conn) {
+	client := NewClient(id, conn, m)
 	client.Start()
 }
 

@@ -10,9 +10,9 @@ import (
 
 func (s *Server) wsHandler() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			return handler.NewErrWithStatus(http.StatusBadRequest, errors.New("missing user_id"))
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID == "" {
+			return handler.NewErrWithStatus(http.StatusBadRequest, errors.New("missing session_id"))
 		}
 
 		conn, err := websocket.Accept(w, r, nil)
@@ -20,7 +20,7 @@ func (s *Server) wsHandler() http.HandlerFunc {
 			return handler.NewErrWithStatus(http.StatusInternalServerError, fmt.Errorf("websocket accept: %w", err))
 		}
 
-		s.WebsocketManager.HandleNewConnection(userID, conn)
+		s.WebsocketManager.HandleNewConnection(sessionID, conn)
 		return nil
 	})
 }

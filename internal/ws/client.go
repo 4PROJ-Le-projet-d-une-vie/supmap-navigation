@@ -119,8 +119,8 @@ func (c *Client) handleMessage(msg Message) {
 			return
 		}
 
-		if session.UserID != c.ID {
-			c.Manager.logger.Warn("user ID mismatch", "clientID", c.ID, "user", session.UserID)
+		if session.ID != c.ID {
+			c.Manager.logger.Warn("Session ID mismatch", "clientID", c.ID, "session", session.ID)
 			return
 		}
 

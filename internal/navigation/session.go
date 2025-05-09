@@ -6,7 +6,7 @@ import (
 )
 
 type Session struct {
-	UserID       string    `json:"user_id"`
+	ID           string    `json:"session_id"`
 	LastPosition Position  `json:"last_position"`
 	Route        Route     `json:"route"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -30,6 +30,6 @@ type Route struct {
 
 type SessionCache interface {
 	SetSession(ctx context.Context, session *Session) error
-	GetSession(ctx context.Context, userID string) (*Session, error)
-	DeleteSession(ctx context.Context, userID string) error
+	GetSession(ctx context.Context, sessionID string) (*Session, error)
+	DeleteSession(ctx context.Context, sessionID string) error
 }

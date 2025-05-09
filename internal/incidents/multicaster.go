@@ -20,8 +20,8 @@ func NewMulticaster(manager *ws.Manager, sessionCache navigation.SessionCache) *
 func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident, action string) {
 	m.Manager.RLock()
 	defer m.Manager.RUnlock()
-	for userID, client := range m.Manager.ClientsUnsafe() {
-		session, err := m.SessionCache.GetSession(ctx, userID)
+	for sessionID, client := range m.Manager.ClientsUnsafe() {
+		session, err := m.SessionCache.GetSession(ctx, sessionID)
 		if err != nil || session == nil {
 			continue
 		}

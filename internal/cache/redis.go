@@ -23,12 +23,12 @@ func (r RedisSessionCache) SetSession(ctx context.Context, session *navigation.S
 	if err != nil {
 		return fmt.Errorf("marshalling session: %w", err)
 	}
-	key := formatKey(session.UserID)
+	key := formatKey(session.ID)
 	return r.client.Set(ctx, key, data, r.ttl).Err()
 }
 
-func (r RedisSessionCache) GetSession(ctx context.Context, userID string) (*navigation.Session, error) {
-	key := formatKey(userID)
+func (r RedisSessionCache) GetSession(ctx context.Context, sessionID string) (*navigation.Session, error) {
+	key := formatKey(sessionID)
 	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		return nil, fmt.Errorf("getting session: %w", err)
@@ -40,14 +40,14 @@ func (r RedisSessionCache) GetSession(ctx context.Context, userID string) (*navi
 	return &session, nil
 }
 
-func (r RedisSessionCache) DeleteSession(ctx context.Context, userID string) error {
-	key := formatKey(userID)
+func (r RedisSessionCache) DeleteSession(ctx context.Context, sessionID string) error {
+	key := formatKey(sessionID)
 	if err := r.client.Del(ctx, key).Err(); err != nil {
 		return fmt.Errorf("deleting session: %w", err)
 	}
 	return nil
 }
 
-func formatKey(userID string) string {
-	return fmt.Sprintf("navigation:session:%s", userID)
+func formatKey(sessionID string) string {
+	return fmt.Sprintf("navigation:session:%s", sessionID)
 }
