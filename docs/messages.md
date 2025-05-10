@@ -164,3 +164,95 @@ Exemple :
 ---
 
 _Note : Les incidents sont transmis en temps réel. Le client doit adapter son comportement selon le type d’action reçue (affichage, recalcul d’itinéraire, suppression, etc.)._
+
+### Route
+
+Type : `route`
+
+Ce message est envoyé par le serveur lorsqu’un incident bloquant est certifié sur la route du client.  
+Le serveur recalcule alors un nouvel itinéraire pour contourner l’incident et transmet ce nouvel itinéraire au client.  
+Ce mécanisme permet de garantir que l’utilisateur dispose en temps réel du meilleur trajet disponible compte tenu des incidents signalés.
+
+Le champ `info` précise la raison du recalcul de la route. Par exemple, `"recalculated_due_to_incident"` indique que la modification fait suite à la réception d’un incident bloquant certifié.
+
+Le champ `route` contient la description complète du nouvel itinéraire, avec l’ensemble des étapes et instructions nécessaires à la navigation.
+
+Exemple :
+
+```json
+{
+    "type": "route",
+    "data": {
+        "route": {
+            "locations": [
+                {
+                    "lat": 49.194305,
+                    "lon": -0.445954,
+                    "type": "break",
+                    "original_index": 0
+                },
+                {
+                    "lat": 49.201353,
+                    "lon": -0.39306,
+                    "type": "break",
+                    "original_index": 1
+                }
+            ],
+            "legs": [
+                {
+                    "maneuvers": [
+                        {
+                            "type": 1,
+                            "instruction": "Conduisez vers l'est sur N 13/E 46.",
+                            "street_names": [
+                                "N 13",
+                                "E 46"
+                            ],
+                            "time": 11.75,
+                            "length": 0.293,
+                            "begin_shape_index": 0,
+                            "end_shape_index": 1
+                        },
+                        .......,
+                        {
+                            "type": 4,
+                            "instruction": "Vous êtes arrivé à votre destination.",
+                            "street_names": [],
+                            "time": 0,
+                            "length": 0,
+                            "begin_shape_index": 297,
+                            "end_shape_index": 297
+                        }
+                    ],
+                    "summary": {
+                        "time": 448.775,
+                        "length": 6.349
+                    },
+                    "shape": [
+                        {
+                            "latitude": 49.194309,
+                            "longitude": -0.445953
+                        },
+                        ..............,
+                        {
+                            "latitude": 49.201345,
+                            "longitude": -0.392996
+                        }
+                    ]
+                }
+            ],
+            "summary": {
+                "time": 448.775,
+                "length": 6.349
+            }
+        },
+        "info": "recalculated_due_to_incident"
+    }
+}
+```
+
+Le champ `route` correspond à la réponse de route classique, la même structure que celle utilisée lors du calcul initial d'itinéraire.
+
+---
+
+_Note : Lorsque ce message est reçu, le client doit mettre à jour la navigation en utilisant le nouvel itinéraire proposé._
