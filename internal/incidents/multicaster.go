@@ -4,17 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"supmap-navigation/internal/gis"
+	routing "supmap-navigation/internal/gis/routing"
 	"supmap-navigation/internal/navigation"
 	"supmap-navigation/internal/ws"
 )
 
 type Multicaster struct {
-	Manager      *ws.Manager
-	SessionCache navigation.SessionCache
+	Manager       *ws.Manager
+	SessionCache  navigation.SessionCache
+	RoutingClient *routing.Client
 }
 
-func NewMulticaster(manager *ws.Manager, sessionCache navigation.SessionCache) *Multicaster {
-	return &Multicaster{Manager: manager, SessionCache: sessionCache}
+func NewMulticaster(manager *ws.Manager, sessionCache navigation.SessionCache, routingClient *routing.Client) *Multicaster {
+	return &Multicaster{
+		Manager:       manager,
+		SessionCache:  sessionCache,
+		RoutingClient: routingClient,
+	}
 }
 
 func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident, action string) {

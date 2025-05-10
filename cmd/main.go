@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"supmap-navigation/internal/api"
 	"supmap-navigation/internal/cache"
 	"supmap-navigation/internal/config"
+	routing "supmap-navigation/internal/gis/routing"
 	"supmap-navigation/internal/incidents"
 	"supmap-navigation/internal/subscriber"
 	"supmap-navigation/internal/ws"
@@ -45,7 +47,12 @@ func run() error {
 	sessionCache := cache.NewRedisSessionCache(redisClient, 30*time.Minute)
 
 	wsManager := ws.NewManager(ctx, logger, sessionCache)
-	multicaster := incidents.NewMulticaster(wsManager, sessionCache)
+
+	supmapGISURL := fmt.Sprintf("http://%s:%s", conf.SupmapGISHost, conf.SupmapGISPort)
+	routingClient := routing.NewClient(supmapGISURL)
+	logger.Info("supmap-gis client initialized", "url", supmapGISURL)
+
+	multicaster := incidents.NewMulticaster(wsManager, sessionCache, routingClient)
 	sub := subscriber.NewSubscriber(conf, logger, redisClient, conf.RedisIncidentsChannel, 10, multicaster)
 
 	go wsManager.Start()
