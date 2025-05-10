@@ -84,6 +84,6 @@ func (s *Subscriber) handleMessage(ctx context.Context, msg *redis.Message) erro
 
 	s.logger.Debug("incident pub/sub message received", "incidentMsg", incidentMsg)
 
-	s.multicaster.MulticastIncident(ctx, &incidentMsg.Data, string(incidentMsg.Action))
+	s.multicaster.MulticastIncident(ctx, &incidentMsg.Data, incidentMsg.Action)
 	return nil
 }
