@@ -6,7 +6,7 @@ Pour se connecter au websocket permettant de commencer une session de navigation
 
 `http://addresse_supmap/navigation/ws?session_id=XXXXXX`
 
-Le paramètre `session_id` contient un UUID généré par le client et stocké dans le local storage, il permet d'identifier la session de navigation active.
+Le paramètre `session_id` contient un UUID généré par le client, il permet d'identifier la session de navigation active.
 
 ## Structure générale
 
@@ -99,3 +99,68 @@ Exemple :
     }
 }
 ```
+
+## Emits par le serveur
+
+### Incident
+
+Type : `incident`
+
+Ce message est envoyé par le serveur dès qu'une action liée aux incidents ("create", "deleted", "certified") est réalisée par le microservice **supmap-incidents**.  
+Il informe tous les clients connectés d'un changement concernant un incident sur leur trajet respectif.
+
+Un incident peut représenter, par exemple, un embouteillage, un accident, ou tout autre événement susceptible d'impacter la circulation.
+
+Le champ `action` précise le type d'opération réalisée sur l'incident :
+* `"create"` : un nouvel incident a été détecté et ajouté.
+* `"certified"` : l’incident a été confirmé (nombre requis d'intéractions atteint).
+* `"deleted"` : l’incident n’est plus d’actualité.
+
+Le champ `incident` contient les informations détaillées sur l’incident concerné.
+
+Exemple :
+
+```json
+{
+  "type": "incident",
+  "data": {
+    "incident": {
+      "id": 26,
+      "user_id": 2,
+      "type": {
+        "id": 3,
+        "name": "Embouteillage",
+        "description": "Circulation fortement ralentie ou à l’arrêt.",
+        "need_recalculation": true
+      },
+      "lat": 49.19477822,
+      "lon": -0.3964915,
+      "created_at": "2025-05-09T14:57:36.96141Z",
+      "updated_at": "2025-05-09T14:57:36.96141Z"
+    },
+    "action": "create"
+  }
+}
+```
+
+#### Détail des champs de `data` :
+
+- `incident` : Objet décrivant l’incident.
+  - `id` : Identifiant unique de l’incident.
+  - `user_id` : Identifiant de l’utilisateur ayant signalé l'incident.
+  - `type` : Objet précisant la nature de l’incident.
+    - `id` : Identifiant du type d’incident.
+    - `name` : Nom du type d’incident (ex : "Embouteillage").
+    - `description` : Description détaillée du type d’incident.
+    - `need_recalculation` : Booléen indiquant si la présence de ce type d’incident nécessite le recalcul de l’itinéraire.
+  - `lat` : Latitude de l’incident.
+  - `lon` : Longitude de l’incident.
+  - `created_at` : Date de création de l’incident (format ISO8601, UTC).
+  - `updated_at` : Date de la dernière mise à jour de l’incident.
+  - `deleted_at` _(optionnel)_ : Date de suppression de l’incident (présent uniquement si l’incident est supprimé).
+
+- `action` : Type d’action liée à l’incident. Peut être `"create"`, `"certified"` ou `"deleted"`.
+
+---
+
+_Note : Les incidents sont transmis en temps réel. Le client doit adapter son comportement selon le type d’action reçue (affichage, recalcul d’itinéraire, suppression, etc.)._
