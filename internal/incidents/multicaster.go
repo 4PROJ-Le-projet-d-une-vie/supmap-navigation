@@ -40,7 +40,7 @@ func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident,
 			continue
 		}
 
-		if incident.Type != nil && incident.Type.NeedRecalculation {
+		if incident.Type != nil && action == Certified && incident.Type.NeedRecalculation {
 			m.handleRouteRecalculation(ctx, client, session)
 			m.sendIncident(client, incident, action)
 		} else {
