@@ -4,7 +4,7 @@
 
 Pour se connecter au websocket permettant de commencer une session de navigation, il faut faire une requête sur l'endpoint suivant :
 
-`http://addresse_supmap/ws?session_id=XXXXXX`
+`http://addresse_supmap/navigation/ws?session_id=XXXXXX`
 
 Le paramètre `session_id` contient un UUID généré par le client et stocké dans le local storage, il permet d'identifier la session de navigation active.
 
@@ -78,3 +78,24 @@ Exemple :
 ```
 
 Le champ `session_id` doit contenir le même UUID utilisé à la connexion initiale (en HTTP).
+
+Le champ `locations` correspond aux points d'arrêts (départ, arrivée et points intermédiaires s'il y en a) de l'itinéraire.
+
+### Position
+
+Type : `position`
+
+Ce message est envoyé à intervalles réguliers par le client (cinq secondes). Il contient la position actuelle du client accompagné d'un timestamp. Ainsi, le serveur est toujours au courant de la position actuelle du client.
+
+Exemple : 
+
+```json
+{
+    "type": "position",
+    "data": {
+        "lat": 49.1943057668118,
+        "lon": -0.44595408906894096,
+        "timestamp": "2025-05-07T10:07:00Z"
+    }
+}
+```
