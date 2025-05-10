@@ -148,8 +148,6 @@ func (c *Client) handleMessage(msg Message) {
 		if err := c.Manager.sessionCache.SetSession(c.ctx, session); err != nil {
 			c.Manager.logger.Warn("failed to update session with new position", "clientID", c.ID, "error", err)
 		}
-	case "route":
-		c.Manager.logger.Debug("received route message", "clientID", c.ID, "data", msg.Data)
 	default:
 		c.Manager.logger.Debug("received unknown type message", "clientID", c.ID, "type", msg.Type)
 	}
