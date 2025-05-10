@@ -7,7 +7,7 @@ import (
 // IncidentPayload represents the payload used in the messages sent to the clients.
 type IncidentPayload struct {
 	Incident *Incident `json:"incident"`
-	Action   Action    `json:"action"`
+	Action   string    `json:"action"`
 }
 
 type Action string

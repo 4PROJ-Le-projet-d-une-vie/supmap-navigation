@@ -27,7 +27,7 @@ func NewMulticaster(manager *ws.Manager, sessionCache navigation.SessionCache, r
 
 // MulticastIncident notifies each client if it's impacted by the incident.
 // If the incident needs a route recalculation and is certified, the new route is sent to the clients.
-func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident, action Action) {
+func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident, action string) {
 	m.Manager.RLock()
 	defer m.Manager.RUnlock()
 
@@ -40,7 +40,7 @@ func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident,
 			continue
 		}
 
-		if incident.Type != nil && action == Certified && incident.Type.NeedRecalculation {
+		if incident.Type != nil && action == "certified" && incident.Type.NeedRecalculation {
 			m.handleRouteRecalculation(ctx, client, session)
 			m.sendIncident(client, incident, action)
 		} else {
@@ -105,7 +105,7 @@ func (m *Multicaster) handleRouteRecalculation(ctx context.Context, client *ws.C
 }
 
 // sendIncident sends a single incident to the client.
-func (m *Multicaster) sendIncident(client *ws.Client, incident *Incident, action Action) {
+func (m *Multicaster) sendIncident(client *ws.Client, incident *Incident, action string) {
 	incidentPayload := IncidentPayload{
 		Incident: incident,
 		Action:   action,
