@@ -26,6 +26,8 @@ type Config struct {
 	RedisHost             string `env:"REDIS_HOST"`
 	RedisPort             string `env:"REDIS_PORT"`
 	RedisIncidentsChannel string `env:"REDIS_INCIDENTS_CHANNEL"`
+	SupmapGISHost         string `env:"SUPMAP_GIS_HOST"`
+	SupmapGISPort         string `env:"SUPMAP_GIS_PORT"`
 	Env                   Env    `env:"ENV" envDefault:"prod"`
 }
 
