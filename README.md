@@ -669,3 +669,172 @@ sequenceDiagram
 ```
 
 ---
+
+## 7. Structures & interfaces importantes
+
+### 7.1. Structures principales
+
+#### 7.1.1. Session de navigation (`internal/navigation/session.go`)
+
+```go
+type Session struct {
+	ID           string    `json:"session_id"`
+	LastPosition Position  `json:"last_position"`
+	Route        Route     `json:"route"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+type Position struct {
+	Lat       float64   `json:"lat"`
+	Lon       float64   `json:"lon"`
+	Timestamp time.Time `json:"timestamp"`
+}
+type Route struct {
+	Polyline  []Point    `json:"polyline"`
+	Locations []Location `json:"locations"`
+}
+type Point struct {
+	Lat float64 `json:"latitude"`
+	Lon float64 `json:"longitude"`
+}
+type Location struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+```
+- **Usage** : représente l’état complet d’une navigation utilisateur (position, itinéraire, timestamps, etc).
+
+#### 7.1.2. Message WebSocket (`internal/ws/client.go`)
+
+```go
+type Message struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+```
+- **Usage** : enveloppe tout message WebSocket échangé (type + payload générique).
+
+#### 7.1.3. Client WebSocket (`internal/ws/client.go`)
+
+```go
+type Client struct {
+	ID      string
+	Conn    *websocket.Conn
+	Manager *Manager
+	send    chan Message
+	ctx     context.Context
+	cancel  context.CancelFunc
+}
+```
+- **Usage** : représente une connexion WebSocket active côté serveur (1 client = 1 session de navigation).
+
+#### 7.1.4. Incident et payload (`internal/incidents/types.go`)
+
+```go
+type IncidentPayload struct {
+	Incident *Incident `json:"incident"`
+	Action   string    `json:"action"`
+}
+type Incident struct {
+	ID        int64      `json:"id"`
+	UserID    int64      `json:"user_id"`
+	Type      *Type      `json:"type"`
+	Lat       float64    `json:"lat"`
+	Lon       float64    `json:"lon"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+}
+type Type struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	NeedRecalculation bool   `json:"need_recalculation"`
+}
+```
+
+- **Usage** : incidents de circulation, utilisés pour notifier le client et déclencher un éventuel recalcul de route.
+
+#### 7.1.5. Manager WebSocket (`internal/ws/manager.go`)
+
+```go
+type Manager struct {
+	clients      map[string]*Client
+	register     chan *Client
+	unregister   chan *Client
+	broadcast    chan Message
+	mu           sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	logger       *slog.Logger
+	sessionCache navigation.SessionCache
+}
+```
+- **Usage** : composant central qui pilote tous les clients WebSocket et la diffusion des messages.
+
+### 7.2. Interfaces métier utiles
+
+#### 7.2.1. SessionCache (`internal/navigation/session.go`)
+
+```go
+type SessionCache interface {
+	SetSession(ctx context.Context, session *Session) error
+	GetSession(ctx context.Context, sessionID string) (*Session, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+}
+```
+- **Usage** : abstraction pour le cache des sessions (implémentée par Redis, mais testable/mockable).
+
+#### 7.2.2. Multicaster d'incidents (`internal/incidents/multicaster.go`)
+
+```go
+type Multicaster struct {
+	Manager       *ws.Manager
+	SessionCache  navigation.SessionCache
+	RoutingClient *routing.Client
+}
+```
+- **Usage** : service qui détermine les clients impactés par un incident et les notifie (voire déclenche un recalcul).
+
+### 7.3. Autres structures clés
+
+- **Server** (`internal/api/server.go`) : struct qui encapsule la config, le manager WebSocket et le logger pour le serveur HTTP.
+- **RedisSessionCache** (`internal/cache/redis.go`) : implémentation concrète de `SessionCache` via Redis.
+- **Point** (`internal/gis/polyline.go`) : structure géographique pour les calculs de distances/incidents.
+
+### 7.4. Diagramme de dépendances principales
+
+```mermaid
+flowchart TD
+    subgraph API/HTTP
+        server[Server]
+    end
+    subgraph WebSocket
+        manager[Manager]
+        client[Client]
+    end
+    subgraph Métier
+        sessionCache[SessionCache]
+        multicaster[Multicaster]
+        incident[Incident, IncidentPayload]
+        sessionData[Session, Route, Position]
+    end
+    subgraph Infra
+        redisCache[RedisSessionCache]
+        redis[Redis]
+        routing[RoutingClient]
+        gis[GIS]
+    end
+
+    server --> manager
+    manager --> client
+    manager --> sessionCache
+    manager --> multicaster
+    multicaster --> incident
+    sessionCache <-- redisCache --> redis
+    multicaster --> routing
+    routing --> gis
+    manager --> sessionData
+    sessionCache --> sessionData
+```
+
+---
