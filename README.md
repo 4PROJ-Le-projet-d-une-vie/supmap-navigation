@@ -36,3 +36,93 @@
 
 ---
 
+## 2. Architecture générale
+
+### 2.1. Schéma d’architecture
+
+```mermaid
+flowchart TD
+    subgraph "Client(s)"
+        A[App mobile/Web<br>Connexion WebSocket]
+    end
+    subgraph supmap-navigation
+        B["API HTTP<br><b>/ws</b> endpoint<br>WebSocket manager"]
+        C[Cache sessions & routes<br>Redis]
+        D[Gestion incidents<br>Multicaster]
+        E["Abonné Redis pub/sub<br>(incidents)"]
+        F["Client supmap-gis<br>(recalcul route)"]
+    end
+    subgraph Redis
+        G[(Cache)]
+        H[(Pub/Sub channel)]
+    end
+    subgraph Ext
+        I[supmap-incidents]
+        J[supmap-gis]
+    end
+
+    A<-- WebSocket  -->B
+    B-- lecture/écriture sessions -->C
+    D-- accès sessions -->C
+    E-- lecture incidents -->H
+    I-- publie incident -->H
+    H-- notification -->E
+    E-- délègue -->D
+    D-- push incident/route -->B
+    D-- demande recalcul -->F
+    F-- HTTP /route -->J
+    J-- réponse route -->F
+    F-- transmet nouvelle route -->D
+    C-- stocke sessions -->G
+    C-- lit sessions -->G
+```
+
+### 2.2. Description des interactions internes et externes
+
+- **Client (mobile)** :  
+  Ouvre une connexion WebSocket sur `/ws` avec un `session_id` (UUID généré). Envoie ses infos d’itinéraire et régulièrement sa position.
+
+- **API HTTP / WebSocket manager** :  
+  Gère l’ouverture, le cycle de vie et la fermeture des connexions WebSocket. Chaque client correspond à une session identifiée et mappée sur une instance interne.
+
+- **Cache Redis** :
+    - Stocke les sessions de navigation : dernière position, itinéraire courant.
+    - Permet de récupérer l’état d’une session à tout instant, pour tous les modules (manager, incidents…).
+
+- **Abonné Redis Pub/Sub** :
+    - S’abonne au canal d’incidents publié par **supmap-incidents**.
+    - À la réception d’un message d’incident, délègue la gestion au **Multicaster**.
+
+- **Gestionnaire d’incidents (Multicaster)** :
+    - Détermine quels clients (sessions actives) sont concernés par l’incident.
+    - Push l’incident en temps réel uniquement aux clients concernés via WebSocket.
+    - Si l’incident nécessite un recalcul de route, il interroge le service **supmap-gis**, met à jour la session et push la nouvelle route au(x) client(s) impacté(s).
+
+- **Client supmap-gis** :
+    - Interagit avec le microservice **supmap-gis** via HTTP pour recalculer un itinéraire si besoin (en cas d’incident bloquant et certifié).
+
+- **supmap-incidents** :
+    - Publie les incidents sur le canal Pub/Sub Redis, ce qui déclenche la chaîne de notifications côté navigation.
+
+### 2.3. Présentation des principaux composants
+
+- **API HTTP/WebSocket (internal/api, internal/ws)** :  
+  Expose l’unique endpoint `/ws` pour la navigation temps réel ; chaque nouvelle connexion est gérée comme un client identifié (`session_id`).
+
+- **Cache Redis (internal/cache)** :  
+  Abstraction pour stocker et lire les objets de session. TTL configurable.
+
+- **Gestionnaire d’incidents (internal/incidents/multicaster.go)** :  
+  Logique pour déterminer si un incident touche un client, envoyer la notification et déclencher le recalcul de route si nécessaire.
+
+- **Abonné Pub/Sub (internal/subscriber)** :  
+  S’abonne au canal Redis des incidents, désérialise les messages et transmet au multicaster.
+
+- **Client GIS (internal/gis/routing/client.go)** :  
+  Client HTTP vers supmap-gis pour demander un recalcul d’itinéraire.
+
+- **Session navigation (internal/navigation)** :  
+  Struct représentant l’état d’une navigation en cours : route, position, timestamps…
+
+---
+
