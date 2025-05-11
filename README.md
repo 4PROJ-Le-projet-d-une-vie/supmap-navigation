@@ -449,3 +449,223 @@ sequenceDiagram
 ```
 
 ---
+
+## 6. Protocole & messages WebSocket
+
+### 6.1. Tableau récapitulatif des types de messages
+
+| Sens                | Type       | Description                                          |
+|---------------------|------------|------------------------------------------------------|
+| Client → Serveur    | `init`     | Initialisation de la session (route, position)       |
+| Client → Serveur    | `position` | Envoi périodique de la position                      |
+| Serveur → Client    | `incident` | Notification d’un incident impactant l’itinéraire    |
+| Serveur → Client    | `route`    | Transmission d’un nouvel itinéraire recalculé        |
+
+### 6.2. Structure générale des messages
+
+Tout message échangé a la forme :
+
+```json
+{
+  "type": "TYPE_MESSAGE",
+  "data": { ... }
+}
+```
+
+- `type` : Type du message (voir tableau ci-dessus)
+- `data` : Données associées, dont la structure dépend du type
+
+### 6.3. Messages Client → Serveur
+
+#### 6.3.1. `init`
+
+**But** : Initialiser la session côté serveur (première connexion), transmettre la route et la position courante du client.
+
+**Structure attendue :**
+```json
+{
+  "type": "init",
+  "data": {
+    "session_id": "e38d5757-5359-44b3-ab6e-8c619e3daba0",
+    "last_position": {
+      "lat": 49.171669,
+      "lon": -0.582579,
+      "timestamp": "2025-05-06T20:52:30Z"
+    },
+    "route": {
+      "polyline": [
+        { "latitude": 49.171669, "longitude": -0.582579 },
+        ...,
+        { "latitude": 49.201345, "longitude": -0.392996 }
+      ],
+      "locations": [
+        { "lat": 49.17167279051877, "lon": -0.5825858234777268 },
+        { "lat": 49.20135359834111, "lon": -0.3930605474075204 }
+      ]
+    },
+    "updated_at": "2025-05-06T20:52:30Z"
+  }
+}
+```
+
+**Description des champs :**
+- `session_id` : UUID de la session (identique à celui passé lors de la connexion WebSocket)
+- `last_position` : Position actuelle (lat, lon, timestamp)
+- `route.polyline` : Liste des points composant la polyline de l’itinéraire
+- `route.locations` : Points d’arrêt (départ, arrivée, étapes)
+- `updated_at` : Date de la dernière mise à jour de la session
+
+#### 6.3.2. `position`
+
+**But :** Mise à jour de la position courante du client à intervalles réguliers (ex : toutes les cinq secondes).
+
+**Structure attendue :**
+```json
+{
+  "type": "position",
+  "data": {
+    "lat": 49.1943057668118,
+    "lon": -0.44595408906894096,
+    "timestamp": "2025-05-07T10:07:00Z"
+  }
+}
+```
+
+**Description des champs :**
+- `lat`, `lon` : Coordonnées GPS de la position courante
+- `timestamp` : Date et heure de la mesure
+
+### 6.4. Messages Serveur → Client
+
+#### 6.4.1. `incident`
+
+**But :** Notifier le client qu’un incident a été signalé, supprimé ou certifié sur son itinéraire.
+
+**Structure attendue :**
+```json
+{
+  "type": "incident",
+  "data": {
+    "incident": {
+      "id": 26,
+      "user_id": 2,
+      "type": {
+        "id": 3,
+        "name": "Embouteillage",
+        "description": "Circulation fortement ralentie ou à l’arrêt.",
+        "need_recalculation": true
+      },
+      "lat": 49.19477822,
+      "lon": -0.3964915,
+      "created_at": "2025-05-09T14:57:36.96141Z",
+      "updated_at": "2025-05-09T14:57:36.96141Z"
+    },
+    "action": "create"
+  }
+}
+```
+
+**Description des champs :**
+- `incident`: Objet décrivant l’incident
+    - `id`: Identifiant unique
+    - `user_id`: Utilisateur ayant signalé l’incident
+    - `type`: Type d’incident (nom, description, recalcul requis…)
+    - `lat`, `lon`: Position de l’incident
+    - `created_at`, `updated_at`: Dates de création/mise à jour
+    - `deleted_at` (optionnel) : Date de suppression si l’incident est supprimé
+- `action`: `"create"`, `"certified"` ou `"deleted"`
+
+#### 6.4.2. `route`
+
+**But :** Transmettre un nouvel itinéraire recalculé à la suite d’un incident bloquant certifié.
+
+**Structure attendue :**
+```json
+{
+  "type": "route",
+  "data": {
+    "route": {
+      "locations": [
+        { "lat": 49.194305, "lon": -0.445954, "type": "break", "original_index": 0 },
+        { "lat": 49.201353, "lon": -0.39306, "type": "break", "original_index": 1 }
+      ],
+      "legs": [
+        {
+          "maneuvers": [
+            {
+              "type": 1,
+              "instruction": "Conduisez vers l'est sur N 13/E 46.",
+              "street_names": [ "N 13", "E 46" ],
+              "time": 11.75,
+              "length": 0.293,
+              "begin_shape_index": 0,
+              "end_shape_index": 1
+            },
+            ...,
+            {
+              "type": 4,
+              "instruction": "Vous êtes arrivé à votre destination.",
+              "street_names": [],
+              "time": 0, "length": 0,
+              "begin_shape_index": 297,
+              "end_shape_index": 297
+            }
+          ],
+          "summary": { "time": 448.775, "length": 6.349 },
+          "shape": [
+            { "latitude": 49.194309, "longitude": -0.445953 },
+            ...,
+            { "latitude": 49.201345, "longitude": -0.392996 }
+          ]
+        }
+      ],
+      "summary": { "time": 448.775, "length": 6.349 }
+    },
+    "info": "recalculated_due_to_incident"
+  }
+}
+```
+
+**Description des champs :**
+- `route`: Nouvel itinéraire complet (même structure que lors du calcul initial avec supmap-gis)
+- `info`: Raison du recalcul (ex : `"recalculated_due_to_incident"`)
+
+### 6.5. Flux typiques et diagrammes de séquence
+
+#### 6.5.1. Flux initialisation et suivi de position
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Service as supmap-navigation
+    Client->>Service: Connexion WS (session_id)
+    Client->>Service: Message "init" (route, position)
+    loop Navigation active
+        Client->>Service: Message "position" (toutes les 5s)
+        Service->>Service: Met à jour la session en cache
+    end
+```
+
+#### 6.5.2. Flux notification d’incident et recalcul d’itinéraire
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Service as supmap-navigation
+    participant Incidents as supmap-incidents
+    participant GIS as supmap-gis
+
+    Incidents-->>Service: Incident (Pub/Sub)
+    Service->>Service: Multicaster détermine les clients concernés
+    alt Incident impacte un client
+        Service-->>Client: Message "incident"
+        alt Incident bloquant certifié
+            Service->>GIS: Requête recalcul d’itinéraire
+            GIS-->>Service: Nouveau trajet
+            Service->>Service: Met à jour la session
+            Service-->>Client: Message "route"
+        end
+    end
+```
+
+---
