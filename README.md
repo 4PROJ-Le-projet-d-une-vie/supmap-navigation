@@ -126,3 +126,97 @@ flowchart TD
 
 ---
 
+## 3. Organisation du projet et Structure des dossiers
+
+### 3.1. Arborescence commentée
+
+```
+supmap-navigation/
+├── cmd/
+│   └── main.go                  # Point d'entrée du microservice
+├── internal/
+│   ├── api/                     # API HTTP : serveur, handler, routing
+│   │   ├── handler.go           # Handler du endpoint /ws (connexion WebSocket)
+│   │   └── server.go            # Démarrage et gestion du serveur HTTP
+│   ├── cache/                   # Cache des sessions de navigation (Redis)
+│   │   └── redis.go             # Abstraction pour stocker/récupérer les sessions navigation
+│   ├── config/                  # Chargement, parsing de la configuration (variables d'env)
+│   ├── gis/                     # Fonctions géospatiales & client supmap-gis
+│   │   ├── polyline.go          # Calculs/distances sur polylines (utile incidents)
+│   │   └── routing/
+│   │       └── client.go        # Client HTTP pour interroger supmap-gis (recalcul d'itinéraire)
+│   ├── incidents/               # Gestion de la diffusion des incidents
+│   │   └── multicaster.go       # Multicast incidents/nouvelles routes aux clients concernés
+│   ├── navigation/              # Structures de navigation (sessions, routes, points…)
+│   │   └── session.go           # Structs : Session, Position, Route, Point, etc.
+│   ├── subscriber/              # Abonné Redis Pub/Sub aux incidents
+│   │   ├── subscriber.go        # Logique d'abonnement et de dispatch au multicaster
+│   │   └── types.go             # Types pour désérialiser les messages incidents
+│   └── ws/                      # Gestion WebSocket : clients, manager, messaging
+│       ├── client.go            # Logique d'un client WebSocket (lifecycle, messaging)
+│       └── manager.go           # Manager central des clients WebSocket
+└── ...
+```
+
+### 3.2. Rôle de chaque dossier/fichier principal
+
+#### 3.2.1. cmd/
+
+- **main.go**  
+  Point d’entrée du service : instancie la config, connecte Redis, démarre les managers, serveurs et workers.
+
+#### 3.2.2. internal/api/
+
+- **server.go**  
+  Serveur HTTP principal, expose `/ws` (WebSocket) et `/health`.
+- **handler.go**  
+  Handler pour la connexion WebSocket, gestion du handshake et vérification du paramètre `session_id`.
+
+#### 3.2.3. internal/cache/
+
+- **redis.go**  
+  Abstraction pour stocker/récupérer une session navigation dans Redis (opérations Set/Get/Delete).
+
+#### 3.2.4. internal/config/
+
+- Chargement et parsing des variables d’environnement (hôtes, ports, Redis, etc).
+
+#### 3.2.5. internal/gis/
+
+- **polyline.go**  
+  Fonctions utilitaires pour les calculs géospatiaux (distance point-polyline, etc).
+- **routing/client.go**  
+  Client HTTP pour appeler supmap-gis lors du recalcul d’itinéraire.
+
+#### 3.2.6. internal/incidents/
+
+- **multicaster.go**  
+  Logique de multicasting des incidents :
+    - Vérifie si un incident concerne la route d’un client.
+    - Push l’incident à la session concernée.
+    - Déclenche un recalcul de route si besoin.
+
+#### 3.2.7. internal/navigation/
+
+- **session.go**  
+  Structures métier pour une session de navigation (Session, Position, Route, Point, etc).
+
+#### 3.2.8. internal/subscriber/
+
+- **subscriber.go**  
+  S’abonne au canal Redis Pub/Sub des incidents, désérialise les messages, relaie au multicaster.
+- **types.go**  
+  Types pour la désérialisation des messages incidents reçus.
+
+#### 3.2.9. internal/ws/
+
+- **manager.go**  
+  Manager WebSocket central :
+    - Gère l’ensemble des clients connectés.
+    - Dispatch les messages (broadcast, ciblé…).
+    - Enregistrement/déconnexion.
+- **client.go**  
+  Représentation d’un client WebSocket individuel :
+    - Gestion du lifecycle, envoi/réception de messages, ping/pong.
+
+---
