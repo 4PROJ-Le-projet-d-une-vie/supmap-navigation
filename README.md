@@ -220,3 +220,119 @@ supmap-navigation/
     - Gestion du lifecycle, envoi/réception de messages, ping/pong.
 
 ---
+
+## 4. Détail des services internes
+
+### 4.1. Gestion des sessions de navigation (`internal/navigation`, `internal/cache`)
+
+#### 4.1.1. Rôle
+- Représente l’état de navigation d’un utilisateur : itinéraire courant, dernière position, timestamp de mise à jour.
+- Permet de persister et de retrouver à tout instant l’état d’une session (utile pour la diffusion des incidents, le recalcul de route, etc).
+
+#### 4.1.2. Dépendances
+- **Redis** (via `internal/cache/redis.go`) pour le stockage temporaire des sessions.
+- Utilisé par le WebSocket manager, le multicaster d’incidents et le subscriber.
+
+#### 4.1.3. Principales méthodes
+- **SessionCache (interface)** :
+    - `SetSession(ctx, session) error` : Ajoute ou met à jour une session en cache.
+    - `GetSession(ctx, sessionID) (*Session, error)` : Récupère l’état d’une session via son ID.
+    - `DeleteSession(ctx, sessionID) error` : Supprime la session du cache.
+
+### 4.2. WebSocket Manager et clients (`internal/ws`)
+
+#### 4.2.1. Rôle
+- Gère toutes les connexions WebSocket actives (un client = une session).
+- Assure l’inscription/désinscription des clients, le broadcast des messages, et la gestion fine des canaux (ping/pong, déconnexions…).
+- Route les messages reçus côté client (init, position) et côté serveur (incident, route recalculée).
+
+#### 4.2.2. Dépendances
+- S’appuie sur le cache session pour la persistance et la cohérence des états utilisateurs.
+- Interagit avec le multicaster d’incidents pour pousser les messages incidents/routes.
+
+#### 4.2.3. Principales méthodes
+- **Manager** :
+    - `Start()` : Boucle principale, écoute inscriptions/désinscriptions/messages.
+    - `Broadcast(message)` : Broadcast d’un message à tous les clients.
+    - `HandleNewConnection(id, conn)` : Création et démarrage d’un nouveau client WebSocket.
+    - `ClientsUnsafe()`, `RLock()`, `RUnlock()` : Gestion thread-safe des clients.
+- **Client** :
+    - `Start()` : Démarre les goroutines de lecture/écriture pour la connexion.
+    - `Send(msg)` : Envoie un message (avec gestion du buffer, déconnexion si bloqué).
+    - `handleMessage(msg)` : Routage des messages reçus (init, position…).
+
+### 4.3. API HTTP (`internal/api`)
+
+#### 4.3.1. Rôle
+- Expose l’endpoint `/ws` (WebSocket) et `/health` (vérification de vie).
+- Effectue la première validation (`session_id`), puis délègue la gestion de la connexion au WebSocket manager.
+
+#### 4.3.2. Dépendances
+- WebSocket manager (gestion des connexions)
+
+#### 4.3.3. Principales méthodes
+- **Server** :
+    - `Start(ctx)` : Démarrage du serveur HTTP, gestion propre du shutdown.
+    - `wsHandler()` : Handler HTTP pour l’upgrade WebSocket (contrôle du paramètre `session_id`).
+
+### 4.4. Cache Redis (`internal/cache`)
+
+#### 4.4.1. Rôle
+- Fournit un cache persistant et performant pour les sessions de navigation.
+- Permet de stocker, récupérer et supprimer l’état d’une session utilisateur.
+
+#### 4.4.2. Dépendances
+- Client Redis (`github.com/redis/go-redis/v9`)
+- Utilisé par le WebSocket manager, le multicaster d’incidents, et le subscriber.
+
+#### 4.4.3. Principales méthodes/fonctions
+- `NewRedisSessionCache(client, ttl)` : Constructeur de la structure cache.
+- `SetSession(ctx, session)` / `GetSession(ctx, sessionID)` / `DeleteSession(ctx, sessionID)` : Opérations CRUD sur les sessions.
+
+### 4.5. Abonné Pub/Sub Redis (`internal/subscriber`)
+
+#### 4.5.1. Rôle
+- S’abonne au canal Pub/Sub Redis où sont publiés les incidents par le microservice supmap-incidents.
+- Désérialise les messages incidents et délègue au multicaster la notification aux clients concernés.
+
+#### 4.5.2. Dépendances
+- Client Redis
+- Multicaster d’incidents
+
+#### 4.5.3. Principales méthodes/fonctions
+- `Start(ctx)` : Boucle d’abonnement au canal Redis, gestion du pool de workers pour traiter les incidents.
+- `handleMessage(ctx, msg)` : Désérialisation et dispatch d’un message incident au multicaster.
+
+### 4.6. Gestionnaire/MultiDiffuseur d’Incidents (`internal/incidents/multicaster.go`)
+
+#### 4.6.1. Rôle
+- Détermine dynamiquement quels clients sont concernés par un incident (en fonction de la route).
+- Envoie l’incident (ou le recalcul d’itinéraire) en temps réel uniquement aux clients concernés.
+- Si besoin, déclenche un recalcul d’itinéraire via le client GIS et met à jour la session.
+
+#### 4.6.2. Dépendances
+- WebSocket manager (pour accéder à tous les clients connectés)
+- SessionCache (pour lire/mettre à jour les routes)
+- Client GIS (pour le recalcul d’itinéraire)
+
+#### 4.6.3. Principales méthodes/fonctions
+- `MulticastIncident(ctx, incident, action)` : Parcourt tous les clients, détecte qui est concerné et leur push le bon message.
+- `isIncidentOnRoute(incident, session)` : Vérifie la proximité de l’incident sur la route du client.
+- `handleRouteRecalculation(ctx, client, session)` : Gère l’appel GIS, update la session, push la nouvelle route.
+- `sendIncident(client, incident, action)` : Push un message incident à un client.
+
+### 4.7. Client GIS (`internal/gis/routing`)
+
+#### 4.7.1. Rôle
+- Communique avec le microservice supmap-gis pour recalculer des itinéraires.
+- Utilisé lors de la certification d’un incident bloquant.
+
+#### 4.7.2. Dépendances
+- HTTP Client standard
+- supmap-gis (microservice)
+
+#### 4.7.3. Principales méthodes/fonctions
+- `NewClient(baseURL)` : Instancie le client GIS.
+- `CalculateRoute(ctx, routeRequest)` : Fait un POST `/route` à supmap-gis, récupère et désérialise la réponse.
+
+---
