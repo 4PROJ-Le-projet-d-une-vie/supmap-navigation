@@ -958,3 +958,46 @@ sequenceDiagram
 ```
 
 ---
+
+## 9. Configuration
+
+### 9.1. Variables d’environnement
+
+Le service utilise un ensemble de variables d’environnement pour sa configuration, chargées automatiquement au démarrage. Voici le tableau récapitulatif (voir aussi `internal/config/config.go`) :
+
+| Nom                       | Obligatoire | Description                                        |
+|---------------------------|-------------|----------------------------------------------------|
+| `API_SERVER_HOST`         | Oui         | Hôte d’écoute du serveur HTTP/WebSocket            |
+| `API_SERVER_PORT`         | Oui         | Port d’écoute du serveur HTTP/WebSocket            |
+| `REDIS_HOST`              | Oui         | Hôte Redis (cache sessions/navigation)             |
+| `REDIS_PORT`              | Oui         | Port Redis                                         |
+| `REDIS_INCIDENTS_CHANNEL` | Oui         | Nom du channel Redis Pub/Sub pour les incidents    |
+| `SUPMAP_GIS_HOST`         | Oui         | Host du service supmap-gis (recalcul d’itinéraire) |
+| `SUPMAP_GIS_PORT`         | Oui         | Port du service supmap-gis                         |
+| `ENV`                     | Non         | Environnement d’exécution (`prod`/`dev`)           |
+
+#### 9.1.1 Exemple de fichier `.env`
+
+```env
+API_SERVER_HOST=0.0.0.0
+API_SERVER_PORT=8080
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_INCIDENTS_CHANNEL=incidents
+SUPMAP_GIS_HOST=supmap-gis
+SUPMAP_GIS_PORT=8000
+ENV=dev
+```
+
+### 9.2. CI : build & push automatique (GitHub Actions)
+
+Le dépôt embarque un workflow CI/CD (.github/workflows/image-publish.yml) qui :
+
+- **Déclencheur** : sur chaque push sur la branche `master`
+- **Actions** :
+    1. Checkout du code
+    2. Login au registre de conteneurs GitHub (`ghcr.io`) via `GITHUB_TOKEN`
+    3. Build de l’image Docker (taggée `ghcr.io/4proj-le-projet-d-une-vie/supmap-navigation:latest`)
+    4. Push de l’image sur GitHub Container Registry
+
+---
