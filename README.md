@@ -838,3 +838,123 @@ flowchart TD
 ```
 
 ---
+
+## 8. Stack trace & appels typiques
+
+### 8.1. Stack trace d’un flux complet (messages WebSocket)
+
+#### a) Connexion et initialisation
+
+1. **Client → Serveur :** Ouverture WebSocket (`/ws?session_id=...`)
+2. **internal/api/handler.go**
+    - `wsHandler()` (HTTP → WS upgrade)
+    - Appelle `ws.Manager.HandleNewConnection(sessionID, conn)`
+3. **internal/ws/manager.go**
+    - `HandleNewConnection(id, conn)` → crée un `ws.Client` et lance `Start()`
+4. **internal/ws/client.go**
+    - `Client.Start()` → lance `readPump()` et `writePump()`
+5. **Client → Serveur :** Envoi du message `"init"`
+6. **internal/ws/client.go**
+    - `handleMessage(msg)` : case `"init"`
+    - Désérialise `navigation.Session` et vérifie l’ID
+    - Appelle `SessionCache.SetSession(ctx, &session)`
+
+#### b) Mise à jour de position
+
+1. **Client → Serveur :** Message `"position"`
+2. **internal/ws/client.go**
+    - `handleMessage(msg)` : case `"position"`
+    - Appelle `SessionCache.GetSession(ctx, sessionID)`
+    - Met à jour la position dans la session
+    - Appelle `SessionCache.SetSession(ctx, session)`
+
+#### c) Réception d’un incident
+
+1. **Incident Pub/Sub (supmap-incidents → Redis)**
+2. **internal/subscriber/subscriber.go**
+    - `Subscriber.Start(ctx)` reçoit le message
+    - Appelle `Multicaster.MulticastIncident(ctx, incident, action)`
+3. **internal/incidents/multicaster.go**
+    - `Multicaster.MulticastIncident()` : boucle sur les clients WebSocket concernés
+    - Si besoin, appelle `handleRouteRecalculation()` (recalcul GIS)
+    - Appelle `sendIncident()` → `Client.Send()` (message `"incident"`)
+4. **internal/ws/client.go**
+    - `writePump()` envoie le message `"incident"` au client
+
+#### d) Recalcul d’itinéraire (sur incident bloquant certifié)
+
+1. **internal/incidents/multicaster.go**
+    - `handleRouteRecalculation()` :
+        - Construit une requête GIS
+        - Appelle `routing.Client.CalculateRoute(ctx, req)`
+        - Met à jour la session (nouvelle route)
+        - Appelle `Client.Send()` (message `"route"`)
+
+### 8.2. Signatures des fonctions principales impliquées
+
+```go
+// internal/api/handler.go
+func (s *Server) wsHandler() http.HandlerFunc
+
+// internal/ws/manager.go
+func (m *Manager) HandleNewConnection(id string, conn *websocket.Conn)
+func (m *Manager) Start()
+
+// internal/ws/client.go
+func (c *Client) Start()
+func (c *Client) handleMessage(msg Message)
+func (c *Client) Send(msg Message)
+func (c *Client) readPump()
+func (c *Client) writePump()
+
+// internal/navigation/session.go
+func (r *RedisSessionCache) SetSession(ctx context.Context, session *navigation.Session) error
+func (r *RedisSessionCache) GetSession(ctx context.Context, sessionID string) (*navigation.Session, error)
+
+// internal/subscriber/subscriber.go
+func (s *Subscriber) Start(ctx context.Context) error
+
+// internal/incidents/multicaster.go
+func (m *Multicaster) MulticastIncident(ctx context.Context, incident *Incident, action string)
+func (m *Multicaster) handleRouteRecalculation(ctx context.Context, client *ws.Client, session *navigation.Session)
+func (m *Multicaster) sendIncident(client *ws.Client, incident *Incident, action string)
+```
+
+### 8.3. Schéma de séquence illustratif
+
+#### 8.3.1. Flux complet : init, position, incident, recalcul
+
+> Ce schéma illustre le parcours d’un message WebSocket typique, depuis la connexion jusqu’à la gestion des incidents et le recalcul d’itinéraire, en montrant chaque acteur et fonction clef impliquée dans le flux.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API/ws handler
+    participant WS as WS Manager/Client
+    participant Redis
+    participant Incidents as Multicaster
+    participant GIS
+
+    Client->>API: WS Upgrade (session_id)
+    API->>WS: HandleNewConnection
+    WS->>Client: Start (readPump/writePump)
+    Client->>WS: "init" (route, position)
+    WS->>Redis: SetSession
+    loop Navigation active
+        Client->>WS: "position" (toutes les 5s)
+        WS->>Redis: SetSession
+        Incidents-->>Incidents: Incident Pub/Sub
+        Incidents->>WS: MulticastIncident
+        alt Incident sur la route
+            Incidents->>Client: Send("incident")
+            alt Incident certifié & bloquant
+                Incidents->>GIS: CalculateRoute
+                GIS-->>Incidents: Nouvelle route
+                Incidents->>Redis: SetSession (nouvelle route)
+                Incidents->>Client: Send("route")
+            end
+        end
+    end
+```
+
+---
