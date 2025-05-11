@@ -336,3 +336,116 @@ supmap-navigation/
 - `CalculateRoute(ctx, routeRequest)` : Fait un POST `/route` à supmap-gis, récupère et désérialise la réponse.
 
 ---
+
+## 5. Endpoint HTTP exposé
+
+### 5.1. Tableau récapitulatif
+
+| Méthode | Chemin | Description                                    | Paramètres obligatoires |
+|---------|--------|------------------------------------------------|-------------------------|
+| GET     | /ws    | Connexion WebSocket pour navigation temps réel | `session_id` (query)    |
+
+### 5.2. Détail de l’endpoint `/ws`
+
+#### 5.2.1. Description fonctionnelle
+
+L’endpoint `/ws` permet à un client (mobile) d’ouvrir une connexion WebSocket persistante avec le service **supmap-navigation** afin de :
+
+- Suivre et mettre à jour sa position en temps réel.
+- Recevoir des notifications d’incidents sur son itinéraire.
+- Être notifié immédiatement d’un recalcul d’itinéraire si nécessaire.
+
+Chaque connexion WebSocket correspond à une session de navigation unique, identifiée par un identifiant `session_id` fourni par le client (UUID généré côté client).
+
+#### 5.2.2. Méthode + chemin
+
+- **Méthode** : `GET`
+- **Chemin** : `/ws`
+
+#### 5.2.3. Paramètres d’ouverture
+
+| Type  | Nom        | Emplacement | Obligatoire | Description                                         |
+|-------|------------|-------------|-------------|-----------------------------------------------------|
+| query | session_id | Query       | Oui         | Identifiant unique de la session (UUID côté client) |
+
+
+Aucun header particulier n’est requis.
+
+#### 5.2.4. Exemple d’ouverture de connexion
+
+**Requête WebSocket (HTTP Upgrade) :**
+```
+GET /ws?session_id=123e4567-e89b-12d3-a456-426614174000 HTTP/1.1
+Host: navigation.supmap.local
+Connection: Upgrade
+Upgrade: websocket
+Origin: https://app.supmap.local
+Sec-WebSocket-Key: xxxxx==
+Sec-WebSocket-Version: 13
+...
+```
+
+**Code JS côté client (exemple, ce n'est pas le vrai code) :**
+```js
+const sessionId = '123e4567-e89b-12d3-a456-426614174000';
+const ws = new WebSocket(`wss://navigation.supmap.local/ws?session_id=${sessionId}`);
+
+ws.onopen = () => {
+  // Envoi du message "init" contenant la route et la position
+};
+```
+
+#### 5.3. Description du flux de traitement
+
+**Résumé textuel :**
+
+1. **Connexion** :  
+   Le client tente d’ouvrir une connexion WebSocket sur `/ws` en passant son `session_id` en query.
+2. **Validation** :  
+   Le serveur vérifie la présence du paramètre `session_id`. Si absent, la connexion est refusée.
+3. **Upgrade et gestion** :  
+   Si OK, la connexion est acceptée, un client WebSocket est instancié et enregistré auprès du manager.
+4. **Échange initial** :  
+   Le client envoie un message `init` contenant sa route et sa position actuelle.
+5. **Traitement en continu** :
+    - Le client envoie périodiquement des positions (`position`).
+    - Le serveur push incidents et nouveaux itinéraires si besoin.
+    - La connexion reste ouverte tant que la session est active (ou jusqu’à déconnexion).
+6. **Déconnexion** :  
+   À la fermeture, le client est désinscrit du manager, la connexion WebSocket est fermée proprement.
+
+#### 5.4. Diagramme de séquence du traitement
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API /ws handler
+    participant WS as WS Manager
+    participant Redis as Redis (Sessions)
+    participant Incidents as PubSub
+    participant GIS as GIS Client
+
+    Client->>API: GET /ws?session_id=UUID (Upgrade WebSocket)
+    API->>API: Vérifie session_id (query)
+    alt session_id manquant
+        API-->>Client: HTTP 400 Bad Request
+    else session_id présent
+        API-->>Client: Upgrade WebSocket (101 Switching Protocols)
+        API->>WS: HandleNewConnection(UUID, Conn)
+        WS->>WS: Inscrit client dans la map
+        Client->>WS: Message "init" (route, position)
+        WS->>Redis: Stocke session/route/position
+        loop Navigation active
+            Client->>WS: Message "position"
+            WS->>Redis: Met à jour la session
+            Incidents->>WS: Incident (via multicaster)
+            WS-->>Client: Message "incident"
+            GIS->>WS: Nouvelle route (si recalcul)
+            WS-->>Client: Message "route"
+        end
+        Client-->>WS: FIN connexion WebSocket
+        WS->>WS: Désinscrit client
+    end
+```
+
+---
